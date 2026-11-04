@@ -95,6 +95,11 @@ jobs:
         cd openwrt
         echo "single thread compile (bcm53xx fix)"
         make -j1 V=s
+        ret=$?
+        if [ $ret -ne 0 ];then
+          echo "Compile failed!"
+          exit $ret
+        fi
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
@@ -115,7 +120,13 @@ jobs:
       id: organize
       if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
-        cd openwrt/bin/targets/*/*
+        set +e
+        BIN_PATH=$(find openwrt/bin/targets -maxdepth 2 -type d | tail -n1)
+        if [ -z "$BIN_PATH" ];then
+          echo "::error::找不到固件输出目录，编译未生成镜像"
+          exit 1
+        fi
+        cd "$BIN_PATH"
         rm -rf packages
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
